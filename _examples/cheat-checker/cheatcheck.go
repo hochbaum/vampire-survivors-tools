@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"vampire-survivors-tools/vampires"
+	"github.com/hochbaum/vampire-survivors-tools/vampires"
 )
 
 func main() {
