@@ -1,7 +1,7 @@
 # vampire-survivors-tools
-A small set of tools for the Vampire Survivors Game written in Go.
+A small set of tools for the Vampire Survivors game written in Go.
 
-This repository contains an unmarshaler for Vampire Survivors' LevelDB save files and a CLI tool which allows you to toggle debug mode. More tools will be added when I feel like it.
+This repository contains an unmarshaller for Vampire Survivors' LevelDB save files and a CLI tool which allows you to toggle debug mode. More tools will be added when I feel like it.
 
 ## Using the CLI tool
 ```
