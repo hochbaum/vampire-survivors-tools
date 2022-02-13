@@ -27,6 +27,12 @@ type SaveFile struct {
 	Language          string `vs_save:"CapacitorStorage.Language"`
 	SelectedCharacter string `vs_save:"CapacitorStorage.SelectedCharacter"`
 	SelectedStage     string `vs_save:"CapacitorStorage.SelectedStage"`
+
+	Coins         float64 `vs_save:"CapacitorStorage.Coins"`
+	LifetimeCoins float64 `vs_save:"CapacitorStorage.LifetimeCoins"`
+	LifetimeHeal  float64 `vs_save:"CapacitorStorage.LifetimeHeal"`
+	MusicVolume   float64 `vs_save:"CapacitorStorage.MusicVolume"`
+	SoundsVolume  float64 `vs_save:"CapacitorStorage.SoundsVolume"`
 }
 
 // ParseSave reads the Vampire Survivors save file located at the specified path or an error on failure.
