@@ -10,7 +10,7 @@ $ ./vampire-survivors-tools.exe --debug # Enables debug mode.
 $ ./vampire-survivors-tools.exe         # Disables debug mode.
 ```
 
-## Using the unmarshaler library
+## Using the unmarshaller library
 Run `go get github.com/hochbaum/vampire-survivors-tools`
 
 ```go
