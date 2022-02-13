@@ -23,6 +23,10 @@ type SaveFile struct {
 	JoystickVisible      bool `vs_save:"CapacitorStorage.JoystickVisible"`
 	SelectedHyper        bool `vs_save:"CapacitorStorage.SelectedHyper"`
 	StreamSafeEnabled    bool `vs_save:"CapacitorStorage.StreamSafeEnabled"`
+
+	Language          string `vs_save:"CapacitorStorage.Language"`
+	SelectedCharacter string `vs_save:"CapacitorStorage.SelectedCharacter"`
+	SelectedStage     string `vs_save:"CapacitorStorage.SelectedStage"`
 }
 
 // ParseSave reads the Vampire Survivors save file located at the specified path or an error on failure.
@@ -35,8 +39,5 @@ func ParseSave(path string) (*SaveFile, error) {
 	defer db.Close()
 
 	var save SaveFile
-	if err := Unmarshal(db, &save); err != nil {
-		return nil, err
-	}
-	return &save, nil
+	return &save, Unmarshal(db, &save)
 }

@@ -13,25 +13,26 @@ func createKey(key string) []byte {
 	return []byte("_file://\x00\x01" + key)
 }
 
-// Unmarshal reads the input struct, reads its tags and unmarshals the levelDB contents to the struct which out points
+type unmarshalFunc func(data []byte, v reflect.Value) error
+
+var unmarshalers = map[reflect.Kind]unmarshalFunc{
+	reflect.Slice:  unmarshalSlice,
+	reflect.Bool:   unmarshalBool,
+	reflect.String: unmarshalString,
+}
+
+// Unmarshal reads the input struct, reads its tags and unmarshalls the levelDB contents to the struct which `out` points
 // to respectively.
 func Unmarshal(db *leveldb.DB, out interface{}) error {
 	v := reflect.ValueOf(out).Elem()
 	if !v.CanAddr() {
-		return fmt.Errorf("cannot unmashal, output type must be a pointer")
-	}
-
-	findPath := func(tag reflect.StructTag) (string, error) {
-		if path, ok := tag.Lookup("vs_save"); ok {
-			return path, nil
-		}
-		return "", fmt.Errorf("no vs_save tag could be found")
+		return fmt.Errorf("cannot unmarshal, output type must be a pointer")
 	}
 
 	for i := 0; i < v.NumField(); i++ {
 		typ := v.Type().Field(i)
-		key, err := findPath(typ.Tag)
-		if err != nil {
+		key, ok := typ.Tag.Lookup("vs_save")
+		if !ok {
 			continue
 		}
 
@@ -42,16 +43,14 @@ func Unmarshal(db *leveldb.DB, out interface{}) error {
 
 		// Strip the first byte because its rubbish.
 		read = read[1:]
+		kind := typ.Type.Kind()
 
-		switch typ.Type.Kind() {
-		case reflect.Slice:
-			if err := unmarshalSlice(read, v.Field(i)); err != nil {
+		if unmarshaler, found := unmarshalers[kind]; found {
+			if err := unmarshaler(read, v.Field(i)); err != nil {
 				return err
 			}
-		case reflect.Bool:
-			if err := unmarshalBool(read, v.Field(i)); err != nil {
-				return err
-			}
+		} else {
+			return fmt.Errorf("unknown kind %q", kind)
 		}
 	}
 	return nil
@@ -73,5 +72,10 @@ func unmarshalBool(data []byte, v reflect.Value) error {
 		return err
 	}
 	v.SetBool(b)
+	return nil
+}
+
+func unmarshalString(data []byte, v reflect.Value) error {
+	v.SetString(string(data))
 	return nil
 }
