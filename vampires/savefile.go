@@ -6,8 +6,16 @@ import (
 
 // SaveFile wraps the contents of a Vampire Survivors save file.
 type SaveFile struct {
-	Achievements   []string `vs_save:"CapacitorStorage.Achievements"`
-	UnlockedHypers []string `vs_save:"CapacitorStorage.UnlockedHypers"`
+	Achievements         []string `vs_save:"CapacitorStorage.Achievements"`
+	BoughtCharacters     []string `vs_save:"CapacitorStorage.BoughtCharacters"`
+	BoughtPowerups       []string `vs_save:"CapacitorStorage.BoughtPowerups:"`
+	CollectedItems       []string `vs_save:"CapacitorStorage.CollectedItems"`
+	CollectedWeapons     []string `vs_save:"CapacitorStorage.CollectedWeapons"`
+	UnlockedCharacters   []string `vs_save:"CapacitorStorage.UnlockedCharacters"`
+	UnlockedHypers       []string `vs_save:"CapacitorStorage.UnlockedHypers"`
+	UnlockedPowerUpRanks []string `vs_save:"CapacitorStorage.UnlockedPowerUpRanks"`
+	UnlockedStages       []string `vs_save:"CapacitorStorage.UnlockedStages"`
+	UnlockedWeapons      []string `vs_save:"CapacitorStorage.UnlockedWeapons"`
 }
 
 // ParseSave reads the Vampire Survivors save file located at the specified path or an error on failure.
