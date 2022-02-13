@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"reflect"
+	"strconv"
 )
 
 // createKey creates a levelDB key from the specified path.
@@ -39,9 +40,16 @@ func Unmarshal(db *leveldb.DB, out interface{}) error {
 			panic(err)
 		}
 
+		// Strip the first byte because its rubbish.
+		read = read[1:]
+
 		switch typ.Type.Kind() {
 		case reflect.Slice:
 			if err := unmarshalSlice(read, v.Field(i)); err != nil {
+				return err
+			}
+		case reflect.Bool:
+			if err := unmarshalBool(read, v.Field(i)); err != nil {
 				return err
 			}
 		}
@@ -52,9 +60,18 @@ func Unmarshal(db *leveldb.DB, out interface{}) error {
 // unmarshalSlice reads a string slice from the save file and assigns it to a struct field.
 func unmarshalSlice(data []byte, v reflect.Value) error {
 	slice := new([]string)
-	if err := json.Unmarshal(data[1:], slice); err != nil {
+	if err := json.Unmarshal(data, slice); err != nil {
 		return err
 	}
 	v.Set(reflect.ValueOf(*slice))
+	return nil
+}
+
+func unmarshalBool(data []byte, v reflect.Value) error {
+	b, err := strconv.ParseBool(string(data))
+	if err != nil {
+		return err
+	}
+	v.SetBool(b)
 	return nil
 }
