@@ -42,15 +42,23 @@ type SaveFile struct {
 	PickupCount    map[string]int32 `vs_save:"CapacitorStorage.PickupCount"`
 }
 
-// ParseSave reads the Vampire Survivors save file located at the specified path or an error on failure.
-func ParseSave(path string) (*SaveFile, error) {
+// OpenSaveFile reads the save file at `path` and returns a SaveFile instance and the leveldb.DB itself, which must be
+// closed by the user.
+func OpenSaveFile(path string) (*SaveFile, *leveldb.DB, error) {
 	db, err := leveldb.OpenFile(path, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-
-	defer db.Close()
-
-	var save SaveFile
-	return &save, Unmarshal(db, &save)
+	save, err := readSaveFile(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	return save, db, nil
 }
+
+// SaveSaveFile serializes the provided SaveFile and writes it to the leveldb.DB.
+func SaveSaveFile(save *SaveFile, db *leveldb.DB) error {
+	return saveSaveFile(save, db)
+}
+
+// Find a better name for this. Lol

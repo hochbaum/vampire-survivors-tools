@@ -5,13 +5,7 @@ import (
 	"fmt"
 	"github.com/syndtr/goleveldb/leveldb"
 	"reflect"
-	"strconv"
 )
-
-// createKey creates a levelDB key from the specified path.
-func createKey(key string) []byte {
-	return []byte("_file://\x00\x01" + key)
-}
 
 // unmarshalFunc defines a function which takes data read from the LevelDB, converts it and unmarshalls it into the
 // provided reflect.Value.
@@ -33,39 +27,39 @@ var unmarshalers = map[reflect.Kind]unmarshalFunc{
 	reflect.Map:   unmarshalStringToIntMap,
 }
 
-// Unmarshal reads the input struct, reads its tags and unmarshalls the levelDB contents to the struct which `out` points
-// to respectively.
-func Unmarshal(db *leveldb.DB, out interface{}) error {
-	v := reflect.ValueOf(out).Elem()
-	if !v.CanAddr() {
-		return fmt.Errorf("cannot unmarshal, output type must be a pointer")
-	}
+// readSaveFile reads the raw save file from the LevelDB and returns its contents wrapped inside an SaveFile instance.
+func readSaveFile(db *leveldb.DB) (*SaveFile, error) {
+	save := new(SaveFile)
+	v := reflect.ValueOf(save).Elem()
 
 	for i := 0; i < v.NumField(); i++ {
-		typ := v.Type().Field(i)
-		key, ok := typ.Tag.Lookup("vs_save")
+		field := v.Type().Field(i)
+		key, ok := field.Tag.Lookup("vs_save")
 		if !ok {
 			continue
 		}
 
 		read, err := db.Get(createKey(key), nil)
 		if err != nil {
+			if err == leveldb.ErrNotFound {
+				continue
+			}
 			panic(err)
 		}
 
-		// Strip the first byte because its rubbish.
+		// Strip the \x01 byte.
 		read = read[1:]
-		kind := typ.Type.Kind()
+		kind := field.Type.Kind()
 
 		if unmarshaler, found := unmarshalers[kind]; found {
 			if err := unmarshaler(read, v.Field(i)); err != nil {
-				return err
+				return nil, err
 			}
 		} else {
-			return fmt.Errorf("unknown kind %q", kind)
+			return nil, fmt.Errorf("unknown kind %q", kind)
 		}
 	}
-	return nil
+	return save, nil
 }
 
 // unmarshalStringSlice reads a string slice from the save file and assigns it to a struct field.
@@ -80,8 +74,8 @@ func unmarshalStringSlice(data []byte, v reflect.Value) error {
 
 // unmarshalBool reads a bool from the save file and assigns it to a struct field.
 func unmarshalBool(data []byte, v reflect.Value) error {
-	b, err := strconv.ParseBool(string(data))
-	if err != nil {
+	var b bool
+	if err := json.Unmarshal(data, &b); err != nil {
 		return err
 	}
 	v.SetBool(b)
@@ -90,14 +84,18 @@ func unmarshalBool(data []byte, v reflect.Value) error {
 
 // unmarshalString reads a string from the save file and assigns it to a struct field.
 func unmarshalString(data []byte, v reflect.Value) error {
-	v.SetString(string(data))
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	v.SetString(str)
 	return nil
 }
 
 // unmarshalFloat reads a float from the save file and assigns it to a struct field.
 func unmarshalFloat(data []byte, v reflect.Value) error {
-	f, err := strconv.ParseFloat(string(data), 64)
-	if err != nil {
+	var f float64
+	if err := json.Unmarshal(data, &f); err != nil {
 		return err
 	}
 	v.SetFloat(f)
@@ -106,8 +104,8 @@ func unmarshalFloat(data []byte, v reflect.Value) error {
 
 // unmarshalInt reads an int from the save file and assigns it to a struct field.
 func unmarshalInt(data []byte, v reflect.Value) error {
-	i, err := strconv.ParseInt(string(data), 10, 64)
-	if err != nil {
+	var i int64
+	if err := json.Unmarshal(data, &i); err != nil {
 		return err
 	}
 	v.SetInt(i)

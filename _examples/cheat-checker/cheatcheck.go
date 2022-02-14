@@ -6,16 +6,23 @@ import (
 )
 
 func main() {
-	const path = "<path to levelDB>"
-
-	save, err := vampires.ParseSave(path)
+	const path = "path/to/your/levelDB"
+	save, db, err := vampires.OpenSaveFile(path)
 	if err != nil {
 		panic(err)
 	}
 
+	// The DB must be closed by you when you are done with it.
+	defer db.Close()
+
 	if save.CheatCodeUsed {
-		fmt.Println("You cheater!")
+		fmt.Println("Hackerman!")
+		fmt.Println("Covering tracks.")
+		save.CheatCodeUsed = false
 	} else {
-		fmt.Println("Honest player.")
+		fmt.Println("Have some coins, real gamer!")
+		save.Coins += 1337
 	}
+
+	panic(vampires.SaveSaveFile(save, db))
 }
