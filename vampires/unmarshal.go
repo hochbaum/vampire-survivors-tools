@@ -19,11 +19,18 @@ type unmarshalFunc func(data []byte, v reflect.Value) error
 
 // unmarshalers maps primitive types to their respective unmarshalFunc.
 var unmarshalers = map[reflect.Kind]unmarshalFunc{
-	reflect.Slice:   unmarshalSlice,
 	reflect.Bool:    unmarshalBool,
 	reflect.String:  unmarshalString,
 	reflect.Float32: unmarshalFloat,
 	reflect.Float64: unmarshalFloat,
+	reflect.Int32:   unmarshalInt,
+	reflect.Int64:   unmarshalInt,
+
+	// TODO: Make this a bit more generic.
+	// String slices and string to int maps are the only types of collections needed right now but in case we get more
+	// collection types in a future update, this should be changed.
+	reflect.Slice: unmarshalStringSlice,
+	reflect.Map:   unmarshalStringToIntMap,
 }
 
 // Unmarshal reads the input struct, reads its tags and unmarshalls the levelDB contents to the struct which `out` points
@@ -61,8 +68,8 @@ func Unmarshal(db *leveldb.DB, out interface{}) error {
 	return nil
 }
 
-// unmarshalSlice reads a string slice from the save file and assigns it to a struct field.
-func unmarshalSlice(data []byte, v reflect.Value) error {
+// unmarshalStringSlice reads a string slice from the save file and assigns it to a struct field.
+func unmarshalStringSlice(data []byte, v reflect.Value) error {
 	slice := new([]string)
 	if err := json.Unmarshal(data, slice); err != nil {
 		return err
@@ -94,5 +101,25 @@ func unmarshalFloat(data []byte, v reflect.Value) error {
 		return err
 	}
 	v.SetFloat(f)
+	return nil
+}
+
+// unmarshalInt reads an int from the save file and assigns it to a struct field.
+func unmarshalInt(data []byte, v reflect.Value) error {
+	i, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return err
+	}
+	v.SetInt(i)
+	return nil
+}
+
+// unmarshalStringToIntMap reads a map with string-keys and int-values from the save file and assigns it to a struct field.
+func unmarshalStringToIntMap(data []byte, v reflect.Value) error {
+	m := new(map[string]int32)
+	if err := json.Unmarshal(data, m); err != nil {
+		return err
+	}
+	v.Set(reflect.ValueOf(*m))
 	return nil
 }
