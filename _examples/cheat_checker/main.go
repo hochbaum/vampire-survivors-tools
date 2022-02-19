@@ -24,7 +24,7 @@ func main() {
 		save.Coins += 1337
 	}
 
-	if err := vampires.SaveSaveFile(save, db); err != nil {
+	if err := vampires.StoreSaveFile(save, db); err != nil {
 		panic(err)
 	}
 }

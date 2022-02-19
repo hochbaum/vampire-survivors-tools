@@ -11,7 +11,7 @@ import (
 // provided reflect.Value.
 type unmarshalFunc func(data []byte, v reflect.Value) error
 
-// unmarshalers maps primitive types to their respective unmarshalFunc.
+// unmarshalers maps types to their respective unmarshalFunc.
 var unmarshalers = map[reflect.Kind]unmarshalFunc{
 	reflect.Bool:    unmarshalBool,
 	reflect.String:  unmarshalString,
@@ -27,39 +27,40 @@ var unmarshalers = map[reflect.Kind]unmarshalFunc{
 	reflect.Map:   unmarshalStringToIntMap,
 }
 
-// readSaveFile reads the raw save file from the LevelDB and returns its contents wrapped inside an SaveFile instance.
-func readSaveFile(db *leveldb.DB) (*SaveFile, error) {
-	save := new(SaveFile)
-	v := reflect.ValueOf(save).Elem()
+// UnmarshalSave reads the entries from the SaveStorage and unmarshalls them into the fields tagged with `vs_save` in the
+// provided interface.
+//
+// If a referenced LevelDB key could not be found in the database, this function does not return an error but prints a
+// warning, as new save files don't contain every possible key.
+func UnmarshalSave(db SaveStorage, i interface{}) error {
+	taggedFields, err := scanStructTags(i, "vs_save")
+	if err != nil {
+		return err
+	}
 
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Type().Field(i)
-		key, ok := field.Tag.Lookup("vs_save")
-		if !ok {
+	for key, value := range taggedFields {
+		data, err := db.Get(createKey(key), nil)
+		if err == leveldb.ErrNotFound {
+			fmt.Printf("warning: ignoring field tagged with %s at it is not present in the levelDB\n", key)
 			continue
+		} else if err != nil {
+			return err
 		}
 
-		read, err := db.Get(createKey(key), nil)
-		if err != nil {
-			if err == leveldb.ErrNotFound {
-				continue
-			}
-			panic(err)
+		data = data[1:]
+		fieldType := value.Type().Kind()
+
+		unmarshaler, ok := unmarshalers[fieldType]
+		if !ok {
+			return fmt.Errorf("could not find suitable unmarshaler for type %s", fieldType)
 		}
 
-		// Strip the \x01 byte.
-		read = read[1:]
-		kind := field.Type.Kind()
-
-		if unmarshaler, found := unmarshalers[kind]; found {
-			if err := unmarshaler(read, v.Field(i)); err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("unknown kind %q", kind)
+		if err := unmarshaler(data, value); err != nil {
+			return err
 		}
 	}
-	return save, nil
+
+	return nil
 }
 
 // unmarshalStringSlice reads a string slice from the save file and assigns it to a struct field.

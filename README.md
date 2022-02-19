@@ -1,7 +1,8 @@
 # vampire-survivors-tools
 A small set of tools for the Vampire Survivors game written in Go.
 
-This repository contains an unmarshaler for Vampire Survivors' LevelDB save files and a CLI tool which allows you to toggle debug mode. More tools will be added when I feel like it.
+As of right now, this repository only contains a library for writing and saving save files and a command line tool which
+scans your game for the debug mode constant and enables or disables it.
 
 ## Using the CLI tool
 ```
@@ -13,10 +14,4 @@ $ ./vampire-survivors-tools.exe         # Disables debug mode.
 ## Using the unmarshaler library
 Run `go get github.com/hochbaum/vampire-survivors-tools`
 
-```go
-saveFile, err := vampires.ParseSave("path/to/your/leveldb/")
-if err != nil {
-  panic(err)
-}
-...
-```
+Take a look into the [the examples directory](https://github.com/hochbaum/vampire-survivors-tools/tree/master/_examples)!

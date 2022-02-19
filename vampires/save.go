@@ -3,7 +3,6 @@ package vampires
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/syndtr/goleveldb/leveldb"
 	"reflect"
 )
 
@@ -22,30 +21,36 @@ var marshalers = map[reflect.Kind]marshalFunc{
 	reflect.Map:     marshalStringToIntMap,
 }
 
-// saveSaveFile serializes the provided SaveFile and writes it to the LevelDB instance.
-func saveSaveFile(save *SaveFile, db *leveldb.DB) error {
-	v := reflect.ValueOf(save).Elem()
+// MarshalSave serializes save file wrapper provided and returns a SerializedSaveFile handle.
+func MarshalSave(i interface{}) (*SerializedSaveFile, error) {
+	serialized := new(SerializedSaveFile)
+	taggedFields, err := scanStructTags(i, "vs_save")
+	if err != nil {
+		return nil, err
+	}
 
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Type().Field(i)
-		key, ok := field.Tag.Lookup("vs_save")
+	for key, value := range taggedFields {
+		fieldType := value.Type().Kind()
+		marshaler, ok := marshalers[fieldType]
 		if !ok {
-			continue
+			return nil, fmt.Errorf("could not find suitable marshaler for type %s", fieldType)
 		}
 
-		kind := field.Type.Kind()
-		if marshaler, found := marshalers[kind]; found {
-			bytes, err := marshaler(v.Field(i))
-			if err != nil {
-				return err
-			}
-			// Add a dummy byte in front of the value.
-			bytes = append([]byte{'\x01'}, bytes...)
-			if err := db.Put(createKey(key), bytes, nil); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("unknown kind %q", kind)
+		data, err := marshaler(value)
+		if err != nil {
+			return nil, err
+		}
+		serialized.Entries = append(serialized.Entries, SerializedSaveFileEntry{createKey(key), createValue(data)})
+	}
+
+	return serialized, nil
+}
+
+// writeSaveToDB writes a SerializedSaveFile to the provided LevelDB.
+func writeSaveToDB(serialized *SerializedSaveFile, db SaveStorage) error {
+	for _, entry := range serialized.Entries {
+		if err := db.Put(entry.Key, entry.Value, nil); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -75,7 +80,7 @@ func marshalInt(v reflect.Value) ([]byte, error) {
 func marshalStringSlice(v reflect.Value) ([]byte, error) {
 	slice, ok := v.Interface().([]string)
 	if !ok {
-		return nil, fmt.Errorf("could not marshal string slice")
+		return nil, fmt.Errorf("could not MarshalSave string slice")
 	}
 	return json.Marshal(slice)
 }
@@ -84,7 +89,7 @@ func marshalStringSlice(v reflect.Value) ([]byte, error) {
 func marshalStringToIntMap(v reflect.Value) ([]byte, error) {
 	m, ok := v.Interface().(map[string]int32)
 	if !ok {
-		return nil, fmt.Errorf("could not marshal string-to-int-map")
+		return nil, fmt.Errorf("could not MarshalSave string-to-int-map")
 	}
 	return json.Marshal(m)
 }
