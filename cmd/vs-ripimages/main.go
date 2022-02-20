@@ -68,7 +68,8 @@ func writeGif(path string, img *gif.GIF) error {
 }
 
 func main() {
-	gifNameExp, _ := regexp.Compile(`^(.*)_i*(\d\d)`)
+	gifNameExp1, _ := regexp.Compile(`^(.*)_i*(\d\d)`)
+	gifNameExp2, _ := regexp.Compile(`(.*)(\d)\.png`)
 	wd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -104,8 +105,11 @@ func main() {
 
 	for name, img := range images {
 		if *gifFlag {
-			parts := gifNameExp.FindStringSubmatch(name)
+			parts := gifNameExp1.FindStringSubmatch(name)
 			// Checking if image is part of a gif
+			if len(parts) != 3 {
+				parts = gifNameExp2.FindStringSubmatch(name)
+			}
 			if len(parts) == 3 {
 				gifName, gifOrderRaw := parts[1], parts[2]
 				gifOrder, _ := strconv.Atoi(gifOrderRaw)
