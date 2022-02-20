@@ -2,12 +2,18 @@ package main
 
 import (
 	"flag"
-	"github.com/hochbaum/vampire-survivors-tools/texturepacker"
-	"github.com/nfnt/resize"
 	"image"
+	"image/draw"
+	"image/gif"
 	"image/png"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
+
+	"github.com/andybons/gogif"
+	"github.com/hochbaum/vampire-survivors-tools/texturepacker"
+	"github.com/nfnt/resize"
 )
 
 type cropper interface {
@@ -52,13 +58,26 @@ func writeImage(path string, img image.Image) error {
 	return png.Encode(file, img)
 }
 
+func writeGif(path string, img *gif.GIF) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return gif.EncodeAll(file, img)
+}
+
 func main() {
+	gifNameExp, _ := regexp.Compile(`^(.*)_i*(\d\d)`)
 	wd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
 	out := flag.String("o", wd, "Specifies the output path.")
 	size := flag.Int("size", 100, "Specifies size of the images.")
+	gifFlag := flag.Bool("gif", false, "Creates gifs from connected frames.")
+	gifs := make(map[string][]image.Image)
+	maxGif := make(map[string]image.Point)
 	flag.Parse()
 
 	path := flag.Arg(0)
@@ -84,7 +103,56 @@ func main() {
 	}
 
 	for name, img := range images {
+		if *gifFlag {
+			parts := gifNameExp.FindStringSubmatch(name)
+			// Checking if image is part of a gif
+			if len(parts) == 3 {
+				gifName, gifOrderRaw := parts[1], parts[2]
+				gifOrder, _ := strconv.Atoi(gifOrderRaw)
+				// Ordering the images in the right sequence
+				if gifs[gifName] == nil {
+					gifs[gifName] = make([]image.Image, 20)
+					maxGif[gifName] = image.Point{}
+				}
+				//Getting the max image size for the gif
+				if img.Bounds().Dx() > maxGif[gifName].X {
+					maxGif[gifName] = image.Point{X: img.Bounds().Max.X, Y: maxGif[gifName].Y}
+				}
+				if img.Bounds().Dy() > maxGif[gifName].Y {
+					maxGif[gifName] = image.Point{X: maxGif[gifName].X, Y: img.Bounds().Max.Y}
+				}
+				gifs[gifName][gifOrder] = img
+				continue
+			}
+		}
 		if err := writeImage(filepath.Join(*out, name), img); err != nil {
+			panic(err)
+		}
+	}
+	for name, curGif := range gifs {
+		outGif := &gif.GIF{}
+		bounds := image.Rect(0, 0, maxGif[name].X, maxGif[name].Y)
+		quantizer := gogif.MedianCutQuantizer{NumColor: 64}
+
+		for _, simage := range curGif {
+			if simage == nil {
+				continue
+			}
+			srcBounds := simage.Bounds()
+			fixedSize := image.NewRGBA(bounds)
+			r := image.Rectangle{
+				image.Point{X: bounds.Dx() - srcBounds.Dx(), Y: bounds.Dy() - srcBounds.Dy()},
+				image.Point{X: bounds.Dx(), Y: bounds.Dy()}}
+			draw.Draw(fixedSize, r, simage, image.Point{}, draw.Src)
+			palettedImage := image.NewPaletted(bounds, nil)
+			quantizer.Quantize(palettedImage, bounds, fixedSize, image.Point{})
+
+			// Add new frame to animated GIF
+			outGif.Image = append(outGif.Image, palettedImage)
+			outGif.Delay = append(outGif.Delay, 20)
+			outGif.Disposal = append(outGif.Disposal, 0x02)
+		}
+		if err := writeGif(filepath.Join(*out, name+".gif"), outGif); err != nil {
 			panic(err)
 		}
 	}
