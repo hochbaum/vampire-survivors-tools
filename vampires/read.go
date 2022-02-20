@@ -41,7 +41,7 @@ func UnmarshalSave(db SaveStorage, i interface{}) error {
 	for key, value := range taggedFields {
 		data, err := db.Get(createKey(key), nil)
 		if err == leveldb.ErrNotFound {
-			fmt.Printf("warning: ignoring field tagged with %s at it is not present in the levelDB\n", key)
+			fmt.Printf("warning: ignoring field tagged with %s as it is not present in the levelDB\n", key)
 			continue
 		} else if err != nil {
 			return err
