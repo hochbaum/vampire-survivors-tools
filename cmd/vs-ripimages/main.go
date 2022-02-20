@@ -36,6 +36,9 @@ func cropFrames(filePath string, size int, texture texturepacker.PackedTexture) 
 	images := make(map[string]image.Image)
 	for _, frame := range texture.Frames {
 		cropped := img.(cropper).SubImage(frame.Frame)
+		if cropped.Bounds().Dx() <= 6 && cropped.Bounds().Dy() <= 6 {
+			continue
+		}
 		cropped = resize.Resize(
 			uint(resizeInt(frame.SourceSize.Width, size)),
 			uint(resizeInt(frame.SourceSize.Height, size)),
@@ -68,7 +71,7 @@ func writeGif(path string, img *gif.GIF) error {
 }
 
 func main() {
-	gifNameExp1, _ := regexp.Compile(`^(.*)_i*(\d\d)`)
+	gifNameExp1, _ := regexp.Compile(`^(.*)_(\d*)\.png`)
 	gifNameExp2, _ := regexp.Compile(`(.*)(\d)\.png`)
 	wd, err := os.Getwd()
 	if err != nil {
@@ -115,7 +118,7 @@ func main() {
 				gifOrder, _ := strconv.Atoi(gifOrderRaw)
 				// Ordering the images in the right sequence
 				if gifs[gifName] == nil {
-					gifs[gifName] = make([]image.Image, 20)
+					gifs[gifName] = make([]image.Image, 128)
 					maxGif[gifName] = image.Point{}
 				}
 				//Getting the max image size for the gif
