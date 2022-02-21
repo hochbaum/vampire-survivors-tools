@@ -16,6 +16,9 @@ import (
 	"github.com/nfnt/resize"
 )
 
+var gifNameExp1 = regexp.MustCompile(`^(.*)_(\d*)\.png`)
+var gifNameExp2 = regexp.MustCompile(`(.*)(\d)\.png`)
+
 type cropper interface {
 	SubImage(r image.Rectangle) image.Image
 }
@@ -61,18 +64,92 @@ func writeImage(path string, img image.Image) error {
 	return png.Encode(file, img)
 }
 
-func writeGif(path string, img *gif.GIF) error {
+func writeImages(path string, images map[string]image.Image) error {
+	for name, img := range images {
+		if err := writeImage(filepath.Join(path, name), img); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Returns imges in order according to their position in the gif
+func orderImages(images map[string]image.Image) (map[string][]image.Image, error) {
+	gifs := make(map[string][]image.Image)
+	for name, img := range images {
+		parts := gifNameExp1.FindStringSubmatch(name)
+		// Checking if image is part of a gif
+		if len(parts) != 3 {
+			parts = gifNameExp2.FindStringSubmatch(name)
+			if len(parts) != 3 {
+				continue
+			}
+		}
+		gifName, gifOrderRaw := parts[1], parts[2]
+		gifOrder, _ := strconv.Atoi(gifOrderRaw)
+		// Allocating enough memory for 128 frames
+		if gifs[gifName] == nil {
+			gifs[gifName] = make([]image.Image, 128)
+		}
+		gifs[gifName][gifOrder] = img
+	}
+	return gifs, nil
+}
+
+// Normalizes images according to the largest image, creates palette
+func normalizeImages(images []image.Image) ([]*image.Paletted, error) {
+	w, h := 0, 0
+	quantizer := gogif.MedianCutQuantizer{NumColor: 64}
+	normalized := make([]*image.Paletted, 0)
+	// Finding biggest image bounds
+	for _, img := range images {
+		if img == nil {
+			continue
+		}
+		dx, dy := img.Bounds().Dx(), img.Bounds().Dy()
+		if dx > w {
+			w = dx
+		}
+		if dy > h {
+			h = dy
+		}
+	}
+	bounds := image.Rect(0, 0, w, h)
+	for _, img := range images {
+		if img == nil {
+			continue
+		}
+		srcBounds := img.Bounds()
+		fixedSize := image.NewRGBA(bounds)
+		// Fitting image into max bounds
+		r := image.Rectangle{
+			image.Point{X: bounds.Dx() - srcBounds.Dx(), Y: bounds.Dy() - srcBounds.Dy()},
+			image.Point{X: bounds.Dx(), Y: bounds.Dy()}}
+		draw.Draw(fixedSize, r, img, image.Point{}, draw.Src)
+		palettedImage := image.NewPaletted(bounds, nil)
+		quantizer.Quantize(palettedImage, bounds, fixedSize, image.Point{})
+		normalized = append(normalized, palettedImage)
+	}
+	return normalized, nil
+}
+
+func writeGif(path string, imgs []*image.Paletted) error {
+	outGif := &gif.GIF{}
+	for _, img := range imgs {
+		// Setting gif settings for each frame
+		outGif.Image = append(outGif.Image, img)
+		outGif.Delay = append(outGif.Delay, 20)
+		outGif.Disposal = append(outGif.Disposal, 0x02)
+	}
 	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	return gif.EncodeAll(file, img)
+	return gif.EncodeAll(file, outGif)
 }
 
 func main() {
-	gifNameExp1 := regexp.MustCompile(`^(.*)_(\d*)\.png`)
-	gifNameExp2 := regexp.MustCompile(`(.*)(\d)\.png`)
 	wd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -80,8 +157,6 @@ func main() {
 	out := flag.String("o", wd, "Specifies the output path.")
 	size := flag.Int("size", 100, "Specifies size of the images.")
 	gifFlag := flag.Bool("gif", false, "Creates gifs from connected frames.")
-	gifs := make(map[string][]image.Image)
-	maxGif := make(map[string]image.Point)
 	flag.Parse()
 
 	path := flag.Arg(0)
@@ -106,60 +181,24 @@ func main() {
 		panic(err)
 	}
 
-	for name, img := range images {
-		if *gifFlag {
-			parts := gifNameExp1.FindStringSubmatch(name)
-			// Checking if image is part of a gif
-			if len(parts) != 3 {
-				parts = gifNameExp2.FindStringSubmatch(name)
-			}
-			if len(parts) == 3 {
-				gifName, gifOrderRaw := parts[1], parts[2]
-				gifOrder, _ := strconv.Atoi(gifOrderRaw)
-				// Ordering the images in the right sequence
-				if gifs[gifName] == nil {
-					gifs[gifName] = make([]image.Image, 128)
-					maxGif[gifName] = image.Point{}
-				}
-				//Getting the max image size for the gif
-				if img.Bounds().Dx() > maxGif[gifName].X {
-					maxGif[gifName] = image.Point{X: img.Bounds().Max.X, Y: maxGif[gifName].Y}
-				}
-				if img.Bounds().Dy() > maxGif[gifName].Y {
-					maxGif[gifName] = image.Point{X: maxGif[gifName].X, Y: img.Bounds().Max.Y}
-				}
-				gifs[gifName][gifOrder] = img
-				continue
-			}
-		}
-		if err := writeImage(filepath.Join(*out, name), img); err != nil {
+	if *gifFlag {
+		gifs, err := orderImages(images)
+		if err != nil {
 			panic(err)
 		}
-	}
-	for name, curGif := range gifs {
-		outGif := &gif.GIF{}
-		bounds := image.Rect(0, 0, maxGif[name].X, maxGif[name].Y)
-		quantizer := gogif.MedianCutQuantizer{NumColor: 64}
-
-		for _, simage := range curGif {
-			if simage == nil {
-				continue
+		// Normalizing and writing each gif
+		for name, imageSeries := range gifs {
+			normalized, err := normalizeImages(imageSeries)
+			if err != nil {
+				panic(err)
 			}
-			srcBounds := simage.Bounds()
-			fixedSize := image.NewRGBA(bounds)
-			r := image.Rectangle{
-				image.Point{X: bounds.Dx() - srcBounds.Dx(), Y: bounds.Dy() - srcBounds.Dy()},
-				image.Point{X: bounds.Dx(), Y: bounds.Dy()}}
-			draw.Draw(fixedSize, r, simage, image.Point{}, draw.Src)
-			palettedImage := image.NewPaletted(bounds, nil)
-			quantizer.Quantize(palettedImage, bounds, fixedSize, image.Point{})
-
-			// Add new frame to animated GIF
-			outGif.Image = append(outGif.Image, palettedImage)
-			outGif.Delay = append(outGif.Delay, 20)
-			outGif.Disposal = append(outGif.Disposal, 0x02)
+			if err := writeGif(filepath.Join(*out, name+".gif"), normalized); err != nil {
+				panic(err)
+			}
 		}
-		if err := writeGif(filepath.Join(*out, name+".gif"), outGif); err != nil {
+	} else {
+		err := writeImages(*out, images)
+		if err != nil {
 			panic(err)
 		}
 	}
