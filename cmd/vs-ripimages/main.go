@@ -71,8 +71,8 @@ func writeGif(path string, img *gif.GIF) error {
 }
 
 func main() {
-	gifNameExp1, _ := regexp.Compile(`^(.*)_(\d*)\.png`)
-	gifNameExp2, _ := regexp.Compile(`(.*)(\d)\.png`)
+	gifNameExp1 := regexp.MustCompile(`^(.*)_(\d*)\.png`)
+	gifNameExp2 := regexp.MustCompile(`(.*)(\d)\.png`)
 	wd, err := os.Getwd()
 	if err != nil {
 		panic(err)
