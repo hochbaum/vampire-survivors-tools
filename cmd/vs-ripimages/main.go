@@ -73,8 +73,8 @@ func writeImages(path string, images map[string]image.Image) error {
 	return nil
 }
 
-// Returns imges in order according to their position in the gif
-func orderImages(images map[string]image.Image) (map[string][]image.Image, error) {
+// sortImages sorts given images according to their position in the gif
+func sortImages(images map[string]image.Image) (map[string][]image.Image, error) {
 	gifs := make(map[string][]image.Image)
 	for name, img := range images {
 		parts := gifNameExp1.FindStringSubmatch(name)
@@ -96,7 +96,7 @@ func orderImages(images map[string]image.Image) (map[string][]image.Image, error
 	return gifs, nil
 }
 
-// Normalizes images according to the largest image, creates palette
+// normalizeImages normalizes images according to the largest image, creates palette
 func normalizeImages(images []image.Image) ([]*image.Paletted, error) {
 	w, h := 0, 0
 	quantizer := gogif.MedianCutQuantizer{NumColor: 64}
@@ -123,8 +123,8 @@ func normalizeImages(images []image.Image) ([]*image.Paletted, error) {
 		fixedSize := image.NewRGBA(bounds)
 		// Fitting image into max bounds
 		r := image.Rectangle{
-			image.Point{X: bounds.Dx() - srcBounds.Dx(), Y: bounds.Dy() - srcBounds.Dy()},
-			image.Point{X: bounds.Dx(), Y: bounds.Dy()}}
+			image.Pt(bounds.Dx()-srcBounds.Dx(), bounds.Dy()-srcBounds.Dy()),
+			image.Pt(bounds.Dx(), bounds.Dy())}
 		draw.Draw(fixedSize, r, img, image.Point{}, draw.Src)
 		palettedImage := image.NewPaletted(bounds, nil)
 		quantizer.Quantize(palettedImage, bounds, fixedSize, image.Point{})
@@ -133,7 +133,7 @@ func normalizeImages(images []image.Image) ([]*image.Paletted, error) {
 	return normalized, nil
 }
 
-func writeGif(path string, imgs []*image.Paletted) error {
+func createGif(imgs []*image.Paletted) *gif.GIF {
 	outGif := &gif.GIF{}
 	for _, img := range imgs {
 		// Setting gif settings for each frame
@@ -141,6 +141,11 @@ func writeGif(path string, imgs []*image.Paletted) error {
 		outGif.Delay = append(outGif.Delay, 20)
 		outGif.Disposal = append(outGif.Disposal, 0x02)
 	}
+	return outGif
+}
+
+func writeGif(path string, imgs []*image.Paletted) error {
+	outGif := createGif(imgs)
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -182,7 +187,7 @@ func main() {
 	}
 
 	if *gifFlag {
-		gifs, err := orderImages(images)
+		gifs, err := sortImages(images)
 		if err != nil {
 			panic(err)
 		}
