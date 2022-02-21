@@ -41,50 +41,40 @@ type Sheet struct {
 type PackedTexture struct {
 	Image  string    `json:"image"`
 	Format string    `json:"format"`
-	Size   Dimension `json:"size"`
+	Size   jsonPoint `json:"size"`
 	Scale  int       `json:"scale"`
 	Frames []Frame   `json:"frames"`
 }
 
 // Frame defines a frame entry of a PackedTexture.
 type Frame struct {
-	FileName         string
-	Rotated          bool
-	Trimmed          bool
-	SourceSize       Dimension
-	SpriteSourceSize image.Rectangle
-	Frame            image.Rectangle
+	FileName         string        `json:"filename"`
+	Rotated          bool          `json:"rotated"`
+	Trimmed          bool          `json:"trimmed"`
+	SourceSize       jsonPoint     `json:"sourceSize"`
+	SpriteSourceSize jsonRectangle `json:"spriteSourceSize"`
+	Frame            jsonRectangle `json:"frame"`
 }
 
-type Dimension struct {
+// jsonPoint defines the JSON representation of an image.Point.
+type jsonPoint struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+// Point returns the jsonPoint as image.Point.
+func (p jsonPoint) Point() image.Point {
+	return image.Pt(p.X, p.Y)
+}
+
+// jsonRectangle defines the JSON representation of an image.Rectangle.
+type jsonRectangle struct {
+	jsonPoint
 	Width  int `json:"w"`
 	Height int `json:"h"`
 }
 
-func (f *Frame) UnmarshalJSON(data []byte) error {
-	values := make(map[string]interface{})
-	if err := json.Unmarshal(data, &values); err != nil {
-		return err
-	}
-	f.FileName = values["filename"].(string)
-	f.Rotated = values["rotated"].(bool)
-	f.Trimmed = values["trimmed"].(bool)
-	f.SourceSize = dimension(values["sourceSize"].(map[string]interface{}))
-	f.SpriteSourceSize = imageRect(values["spriteSourceSize"].(map[string]interface{}))
-	f.Frame = imageRect(values["frame"].(map[string]interface{}))
-	return nil
-}
-
-// dimension creates a Dimension instance from the provided JSON map.
-func dimension(data map[string]interface{}) Dimension {
-	return Dimension{Width: int(data["w"].(float64)), Height: int(data["h"].(float64))}
-}
-
-// imageRect creates an instance of image.Reactangle from the provided JSON map.
-func imageRect(data map[string]interface{}) image.Rectangle {
-	x := data["x"].(float64)
-	y := data["y"].(float64)
-	w := data["w"].(float64)
-	h := data["h"].(float64)
-	return image.Rect(int(x), int(y), int(x+w), int(y+h))
+// Rect returns the jsonRectangle as image.Rectangle.
+func (r jsonRectangle) Rect() image.Rectangle {
+	return image.Rect(r.X, r.Y, r.X+r.Width, r.Y+r.Height)
 }
