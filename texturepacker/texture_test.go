@@ -21,23 +21,23 @@ func createTestSheet() (Sheet, []byte) {
 			{
 				Image:  "image01.png",
 				Format: "RGBA8888",
-				Size:   jsonPoint{13, 37},
+				Size:   jsonDimension{13, 37},
 				Scale:  1,
 				Frames: []Frame{
 					{
 						FileName:   "frame01.png",
 						Rotated:    true,
 						Trimmed:    false,
-						SourceSize: jsonPoint{900, 1},
+						SourceSize: jsonDimension{900, 1},
 						SpriteSourceSize: jsonRectangle{
-							jsonPoint: jsonPoint{5, 6},
-							Width:     42,
-							Height:    360,
+							jsonDimension: jsonDimension{5, 6},
+							X:             42,
+							Y:             360,
 						},
 						Frame: jsonRectangle{
-							jsonPoint: jsonPoint{90, 12},
-							Width:     413,
-							Height:    600,
+							jsonDimension: jsonDimension{90, 12},
+							X:             413,
+							Y:             600,
 						},
 					},
 				},

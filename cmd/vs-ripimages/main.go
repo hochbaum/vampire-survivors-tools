@@ -31,8 +31,8 @@ func cropFrames(filePath string, size int, texture texturepacker.PackedTexture) 
 	for _, frame := range texture.Frames {
 		cropped := img.(cropper).SubImage(frame.Frame.Rect())
 		cropped = resize.Resize(
-			uint(resizeInt(frame.SourceSize.X, size)),
-			uint(resizeInt(frame.SourceSize.Y, size)),
+			uint(resizeInt(frame.SourceSize.Width, size)),
+			uint(resizeInt(frame.SourceSize.Height, size)),
 			cropped, resize.NearestNeighbor)
 		images[frame.FileName] = cropped
 	}

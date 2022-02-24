@@ -39,11 +39,11 @@ type Sheet struct {
 
 // PackedTexture defines a texture packed by texturepacker.
 type PackedTexture struct {
-	Image  string    `json:"image"`
-	Format string    `json:"format"`
-	Size   jsonPoint `json:"size"`
-	Scale  int       `json:"scale"`
-	Frames []Frame   `json:"frames"`
+	Image  string        `json:"image"`
+	Format string        `json:"format"`
+	Size   jsonDimension `json:"size"`
+	Scale  int           `json:"scale"`
+	Frames []Frame       `json:"frames"`
 }
 
 // Frame defines a frame entry of a PackedTexture.
@@ -51,27 +51,27 @@ type Frame struct {
 	FileName         string        `json:"filename"`
 	Rotated          bool          `json:"rotated"`
 	Trimmed          bool          `json:"trimmed"`
-	SourceSize       jsonPoint     `json:"sourceSize"`
+	SourceSize       jsonDimension `json:"sourceSize"`
 	SpriteSourceSize jsonRectangle `json:"spriteSourceSize"`
 	Frame            jsonRectangle `json:"frame"`
 }
 
-// jsonPoint defines the JSON representation of an image.Point.
-type jsonPoint struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+// jsonDimension defines the JSON representation of an image.Point.
+type jsonDimension struct {
+	Width  int `json:"w"`
+	Height int `json:"h"`
 }
 
-// Point returns the jsonPoint as image.Point.
-func (p jsonPoint) Point() image.Point {
-	return image.Pt(p.X, p.Y)
+// Point returns the jsonDimension as image.Point.
+func (p jsonDimension) Point() image.Point {
+	return image.Pt(p.Width, p.Height)
 }
 
 // jsonRectangle defines the JSON representation of an image.Rectangle.
 type jsonRectangle struct {
-	jsonPoint
-	Width  int `json:"w"`
-	Height int `json:"h"`
+	jsonDimension
+	X int `json:"x"`
+	Y int `json:"y"`
 }
 
 // Rect returns the jsonRectangle as image.Rectangle.
