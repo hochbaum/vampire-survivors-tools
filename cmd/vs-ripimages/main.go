@@ -38,7 +38,7 @@ func cropFrames(filePath string, size int, texture texturepacker.PackedTexture) 
 
 	images := make(map[string]image.Image)
 	for _, frame := range texture.Frames {
-		cropped := img.(cropper).SubImage(frame.Frame)
+		cropped := img.(cropper).SubImage(frame.Frame.Rect())
 		if cropped.Bounds().Dx() <= 6 && cropped.Bounds().Dy() <= 6 {
 			continue
 		}
